@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.21.3/full/pyodide.js"></script>
+    <script src="./via/receiver/receiver.js"></script>
+</head>
+
+<body>
+    Pyodide Worker test page <br/>
+    <div>
+        <img id="image" src="" alt="" />
+    </div>
+    <script type="text/javascript">
+
+        async function sendMessage(worker, action, message, transfer) {
+            return new Promise((res, rej) => {
+                const channel = new MessageChannel();
+                channel.port1.onmessage = ({ data }) => {
+                    channel.port1.close();
+                    if (data.error) {
+                        rej(data.error);
+                    } else {
+                        res(data.results);
+                    }
+                };
+
+                let transfers = [channel.port2];
+                if (transfer !== undefined) {
+                    transfers = transfers.concat(transfer);
+                }
+
+                worker.postMessage({
+                    action,
+                    message,
+                }, transfers);
+            });
+        }
+
+        async function runScript(worker, script) {
+            return sendMessage(worker, 'runPython', script);
+        }
+
+        async function loadPackage(worker, script) {
+            return sendMessage(worker, 'loadPackage', script);
+        }
+
+        async function setImage(worker, path, type) {
+            return sendMessage(
+                worker,
+                'setImage',
+                {
+                    path,
+                    type,
+                },
+            );
+        }
+
+        async function main() {
+            const pyodideWorker = new Worker("./worker.js");
+
+
+            pyodideWorker.onmessage = (e => ViaReceiver.OnMessage(e.data));
+            ViaReceiver.postMessage = () => {};
+
+            await loadPackage(pyodideWorker, ["pillow", "numpy"]);
+            await runScript(pyodideWorker, `
+                from PIL import Image
+                import numpy as np
+
+                arr = np.random.randint(0, 255, (300, 300, 3), dtype='uint8')
+                im = Image.fromarray(arr,'RGB')
+                im.save("/out.png")
+            `)
+            await setImage(pyodideWorker, "/out.png", "image/png");
+        }
+
+        main();
+    </script>
+</body>
+
+</html>
