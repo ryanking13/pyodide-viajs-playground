@@ -1,5 +1,7 @@
 # Pyodide + via.js worker example
 
+Accessing DOM inside a Web Worker using [via.js](https://ashleyscirra.github.io/via.js/)
+
 Usage:
 
 ```sh
